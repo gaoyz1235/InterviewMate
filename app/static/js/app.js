@@ -326,7 +326,67 @@ function appendTranscriptItem(parent, item) {
   const div = document.createElement("div");
   div.className = `message ${item.role}`;
   const elapsed = item.elapsed_seconds === null || item.elapsed_seconds === undefined ? "" : ` · ${item.elapsed_seconds} 秒`;
-  div.innerHTML = `<div class="message-meta">${item.role === "assistant" ? "AI 面试官" : "我的回答"}${elapsed}</div><div class="message-content"></div>`;
+  const canGenerateParadigm = item.role === "assistant" && item.question_id;
+  div.innerHTML = `
+    <div class="message-meta">${item.role === "assistant" ? "AI 面试官" : "我的回答"}${elapsed}</div>
+    <div class="message-content"></div>
+    ${canGenerateParadigm ? '<button type="button" class="paradigm-button secondary">生成范式回答</button><div class="paradigm-result hidden"></div>' : ""}
+  `;
   div.querySelector(".message-content").textContent = item.content;
+  if (canGenerateParadigm) {
+    div.querySelector(".paradigm-button").addEventListener("click", (event) => {
+      generateParadigmAnswer(item.question_id, event.currentTarget);
+    });
+  }
   parent.appendChild(div);
+}
+
+async function generateParadigmAnswer(questionId, button) {
+  button.disabled = true;
+  button.textContent = "生成中...";
+  const result = button.parentElement.querySelector(".paradigm-result");
+  try {
+    const data = await fetchJson(`${apiBaseUrl()}/${sessionId}/paradigm-answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question_id: questionId }),
+    });
+    renderParadigmAnswer(result, data);
+    result.classList.remove("hidden");
+    button.textContent = "重新生成范式回答";
+  } catch (error) {
+    result.textContent = error.message;
+    result.classList.remove("hidden");
+    button.textContent = "生成失败，重试";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderParadigmAnswer(container, data) {
+  container.innerHTML = `
+    <div class="paradigm-title">范式回答</div>
+    <div class="rewrite-label">回答结构</div>
+    <ol class="paradigm-structure"></ol>
+    <div class="rewrite-label">示范答案</div>
+    <p class="paradigm-sample"></p>
+    <div class="rewrite-label">为什么更好</div>
+    <p class="paradigm-why"></p>
+    <div class="rewrite-label">常见坑</div>
+    <ul class="paradigm-pitfalls"></ul>
+  `;
+  const structure = container.querySelector(".paradigm-structure");
+  (data.answer_structure || []).forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    structure.appendChild(li);
+  });
+  container.querySelector(".paradigm-sample").textContent = data.sample_answer || "";
+  container.querySelector(".paradigm-why").textContent = data.why_better || "";
+  const pitfalls = container.querySelector(".paradigm-pitfalls");
+  (data.common_pitfalls || []).forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    pitfalls.appendChild(li);
+  });
 }

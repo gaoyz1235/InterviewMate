@@ -1,9 +1,9 @@
-import json
 import logging
 import random
 
 from app.schemas.interview import InterviewPlan, InterviewQuestion, QuestionType, ResumeAnalysis
 from app.services.llm_client import LLMClient
+from app.services.prompt_builder import build_interview_plan_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ def _build_questions_with_llm(
 
     data = client.chat_json(
         "你是一名互联网大厂技术岗一面面试官，只输出 JSON，不输出 Markdown。",
-        _build_plan_prompt(
+        build_interview_plan_prompt(
             analysis=analysis,
             target_company=target_company,
             target_role=target_role,
@@ -99,43 +99,6 @@ def _build_questions_with_llm(
 
     logger.info("plan_builder.llm.done generated=%s expected=%s", len(questions), len(question_types))
     return questions
-
-
-def _build_plan_prompt(
-    analysis: ResumeAnalysis,
-    target_company: str,
-    target_role: str,
-    duration_minutes: int,
-    question_types: list[QuestionType],
-) -> str:
-    analysis_json = json.dumps(analysis.model_dump(), ensure_ascii=False)
-    return f"""
-请根据候选人的简历分析结果，生成一轮模拟面试的问题列表。
-
-要求：
-1. 必须严格按照给定题型顺序生成问题：{question_types}
-2. 每个问题只问一个点，短而具体，像真实技术一面。
-3. 优先围绕简历中的项目、技能和风险点提问，不要编造简历没有的信息。
-4. 如果题型是“项目深挖”，要追问候选人的职责、技术方案、难点、取舍、结果或边界。
-5. 如果题型是“技术基础”，要结合简历技能和目标岗位问原理或落地问题。
-6. 如果题型是“岗位匹配”，要问候选人与目标公司/岗位的匹配证据。
-7. 如果题型是“行为动机”，要问项目协作、困难解决、动机或复盘。
-8. 只输出 JSON，格式如下：
-{{
-  "questions": [
-    {{
-      "question_type": "项目深挖",
-      "question": "问题文本",
-      "related_resume": "该问题关联的简历证据，若没有则为空字符串"
-    }}
-  ]
-}}
-
-目标公司：{target_company or "未指定"}
-目标岗位：{target_role or "技术实习生"}
-面试时长：{duration_minutes} 分钟
-简历分析结果：{analysis_json}
-""".strip()
 
 
 def _build_fallback_questions(

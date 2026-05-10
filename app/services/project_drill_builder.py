@@ -14,7 +14,7 @@ def build_project_drill_plan(
     target_role: str,
     round_count: int,
 ) -> InterviewPlan:
-    safe_round_count = min(max(round_count, 3), 5)
+    safe_round_count = min(max(round_count, 1), 3)
     questions = _build_questions_with_llm(
         project_text=project_text,
         question_focus=question_focus,

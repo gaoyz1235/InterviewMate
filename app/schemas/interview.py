@@ -77,6 +77,18 @@ class RollbackResponse(BaseModel):
     message: str = ""
 
 
+class ParadigmAnswerRequest(BaseModel):
+    question_id: str
+
+
+class ParadigmAnswerResponse(BaseModel):
+    question_id: str
+    answer_structure: list[str] = Field(default_factory=list)
+    sample_answer: str
+    why_better: str
+    common_pitfalls: list[str] = Field(default_factory=list)
+
+
 class AnswerRequest(BaseModel):
     question_id: str
     answer: str = Field(min_length=1)

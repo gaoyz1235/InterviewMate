@@ -290,6 +290,30 @@ button:disabled {
   text-align: left;
 }
 
+.paradigm-button {
+  margin-top: 12px;
+  padding: 9px 14px;
+  border-radius: 12px;
+}
+
+.paradigm-result {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+}
+
+.paradigm-title {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.paradigm-result p,
+.paradigm-result li {
+  line-height: 1.65;
+}
+
 li {
   margin: 8px 0;
   line-height: 1.6;

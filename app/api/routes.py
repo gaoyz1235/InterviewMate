@@ -8,6 +8,8 @@ from app.schemas.interview import (
     AnswerRequest,
     AnswerResponse,
     InterviewSummary,
+    ParadigmAnswerRequest,
+    ParadigmAnswerResponse,
     RollbackRequest,
     RollbackResponse,
     StartInterviewResponse,
@@ -15,6 +17,7 @@ from app.schemas.interview import (
 from app.services.interview_engine import (
     current_question,
     finish_session,
+    generate_paradigm_answer,
     handle_answer,
     rollback_session,
     start_project_drill_session,
@@ -137,6 +140,16 @@ async def rollback_interview(session_id: str, request: RollbackRequest) -> Rollb
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.post("/api/interviews/{session_id}/paradigm-answer", response_model=ParadigmAnswerResponse)
+async def paradigm_answer_interview(session_id: str, request: ParadigmAnswerRequest) -> ParadigmAnswerResponse:
+    logger.info("user.paradigm_request session_id=%s question_id=%s", session_id, request.question_id)
+    try:
+        return generate_paradigm_answer(session_id, request.question_id)
+    except ValueError as exc:
+        logger.warning("api.paradigm.failed session_id=%s error=%s", session_id, str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.post("/api/project-drills/start")
 async def start_project_drill(
     project_text: str = Form(""),
@@ -217,6 +230,16 @@ async def rollback_project_drill(session_id: str, request: RollbackRequest) -> R
         return rollback_session(session_id, request.question_id)
     except ValueError as exc:
         logger.warning("api.project_drill_rollback.failed session_id=%s error=%s", session_id, str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/api/project-drills/{session_id}/paradigm-answer", response_model=ParadigmAnswerResponse)
+async def paradigm_answer_project_drill(session_id: str, request: ParadigmAnswerRequest) -> ParadigmAnswerResponse:
+    logger.info("user.project_drill_paradigm session_id=%s question_id=%s", session_id, request.question_id)
+    try:
+        return generate_paradigm_answer(session_id, request.question_id)
+    except ValueError as exc:
+        logger.warning("api.project_drill_paradigm.failed session_id=%s error=%s", session_id, str(exc))
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 

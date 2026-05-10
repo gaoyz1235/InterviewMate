@@ -9,6 +9,7 @@ from app.schemas.interview import (
     InterviewMessage,
     InterviewQuestion,
     InterviewSummary,
+    ParadigmAnswerResponse,
     ResumeRewrite,
     RollbackResponse,
     ScoreItem,
@@ -16,7 +17,12 @@ from app.schemas.interview import (
 from app.services.llm_client import LLMClient
 from app.services.plan_builder import build_interview_plan
 from app.services.project_drill_builder import build_project_drill_plan
-from app.services.prompt_builder import build_follow_up_prompt, build_project_drill_summary_prompt, build_summary_prompt
+from app.services.prompt_builder import (
+    build_follow_up_prompt,
+    build_paradigm_answer_prompt,
+    build_project_drill_summary_prompt,
+    build_summary_prompt,
+)
 from app.services.resume_analyzer import analyze_resume
 from app.services.session_store import get_session, save_session
 
@@ -226,6 +232,45 @@ def rollback_session(session_id: str, question_id: str) -> RollbackResponse:
     )
 
 
+def generate_paradigm_answer(session_id: str, question_id: str) -> ParadigmAnswerResponse:
+    context = _require_session(session_id)
+    question_message = _find_question_message(context.history, question_id)
+    if question_message is None:
+        raise ValueError("无法找到对应问题。")
+
+    user_answer = _collect_answer_after_question(context.history, question_id)
+    related_context = _related_context_for_question(context, question_id)
+    llm_answer = _llm_paradigm_answer(
+        context=context,
+        question_id=question_id,
+        question=question_message.content,
+        user_answer=user_answer,
+        related_context=related_context,
+    )
+    if llm_answer:
+        return llm_answer
+
+    return ParadigmAnswerResponse(
+        question_id=question_id,
+        answer_structure=[
+            "先用一句话给结论",
+            "补充项目背景和目标",
+            "明确自己的个人职责",
+            "解释关键技术方案和取舍",
+            "说明结果、指标或可验证证据",
+            "最后补充边界和复盘",
+        ],
+        sample_answer=(
+            f"这题我会先明确结论：我的核心贡献是围绕该问题完成方案设计和落地。"
+            f"在项目中，我会先说明业务背景，再讲我负责的部分，接着解释为什么采用当前方案，"
+            f"它解决了什么问题、有什么边界，以及如果规模扩大或重新设计我会如何优化。"
+            f"如果简历中有指标，应补充具体指标；如果没有，应说明后续会如何补齐验证方式。"
+        ),
+        why_better="这个回答比直接描述“做了什么”更好，因为它同时覆盖了背景、职责、方案、取舍、结果和复盘。",
+        common_pitfalls=["只说团队做了什么，没有说明个人贡献。", "缺少指标和边界条件。", "没有解释为什么选择这个方案。"],
+    )
+
+
 def current_question(context: InterviewContext) -> InterviewQuestion | None:
     if not context.plan.questions:
         return None
@@ -244,6 +289,74 @@ def _history_until_checkpoint(history: list[InterviewMessage], question_id: str)
         if message.role == "assistant" and message.question_id == question_id:
             return history[: index + 1]
     return []
+
+
+def _find_question_message(history: list[InterviewMessage], question_id: str) -> InterviewMessage | None:
+    for message in history:
+        if message.role == "assistant" and message.question_id == question_id:
+            return message
+    return None
+
+
+def _collect_answer_after_question(history: list[InterviewMessage], question_id: str) -> str:
+    chunks = []
+    collecting = False
+    for message in history:
+        if message.role == "assistant" and message.question_id == question_id:
+            collecting = True
+            continue
+        if not collecting:
+            continue
+        if message.role == "assistant" and message.question_id and not message.question_id.startswith(f"{question_id}_f"):
+            break
+        if message.role == "user":
+            chunks.append(message.content)
+    return "\n".join(chunks)
+
+
+def _related_context_for_question(context: InterviewContext, question_id: str) -> str:
+    base_question_id = question_id.split("_f", 1)[0]
+    for question in context.plan.questions:
+        if question.question_id == base_question_id:
+            return question.related_resume or context.resume_text
+    return context.resume_text
+
+
+def _llm_paradigm_answer(
+    context: InterviewContext,
+    question_id: str,
+    question: str,
+    user_answer: str,
+    related_context: str,
+) -> ParadigmAnswerResponse | None:
+    client = LLMClient()
+    if not client.configured:
+        logger.info("interview.paradigm.skip session_id=%s reason=not_configured", context.session_id)
+        return None
+    data = client.chat_json(
+        "你是一名擅长训练候选人表达的大厂技术面试教练，只输出 JSON。",
+        build_paradigm_answer_prompt(
+            question=question,
+            user_answer=user_answer,
+            related_context=related_context,
+            target_role=context.target_role,
+        ),
+        timeout_seconds=120,
+    )
+    if not data:
+        logger.info("interview.paradigm.empty session_id=%s question_id=%s", context.session_id, question_id)
+        return None
+    try:
+        return ParadigmAnswerResponse(
+            question_id=question_id,
+            answer_structure=[str(item).strip() for item in data.get("answer_structure", []) if str(item).strip()],
+            sample_answer=str(data.get("sample_answer") or "").strip(),
+            why_better=str(data.get("why_better") or "").strip(),
+            common_pitfalls=[str(item).strip() for item in data.get("common_pitfalls", []) if str(item).strip()],
+        )
+    except Exception as exc:
+        logger.exception("interview.paradigm.invalid session_id=%s question_id=%s error=%s", context.session_id, question_id, exc.__class__.__name__)
+        return None
 
 
 def _question_from_request(context: InterviewContext, question_id: str) -> InterviewQuestion | None:
