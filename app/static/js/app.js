@@ -1,5 +1,9 @@
 const form = document.querySelector("#start-form");
 const startPanel = document.querySelector("#start-panel");
+const interviewFields = document.querySelector("#interview-fields");
+const projectDrillFields = document.querySelector("#project-drill-fields");
+const questionFocus = document.querySelector("#question-focus");
+const customFocusLabel = document.querySelector("#custom-focus-label");
 const interviewPanel = document.querySelector("#interview-panel");
 const resultPanel = document.querySelector("#result-panel");
 const startButton = document.querySelector("#start-button");
@@ -15,6 +19,7 @@ const restartButton = document.querySelector("#restart");
 
 let sessionId = null;
 let currentQuestion = null;
+let currentMode = "interview";
 let timerId = null;
 let seconds = 0;
 const maxSeconds = 180;
@@ -78,13 +83,38 @@ async function fetchJson(url, options = {}) {
   return data;
 }
 
+function getSelectedMode() {
+  const selected = form.querySelector('input[name="mode"]:checked');
+  return selected ? selected.value : "interview";
+}
+
+function updateModeFields() {
+  const mode = getSelectedMode();
+  interviewFields.classList.toggle("hidden", mode !== "interview");
+  projectDrillFields.classList.toggle("hidden", mode !== "project_drill");
+}
+
+function updateCustomFocusField() {
+  customFocusLabel.classList.toggle("hidden", questionFocus.value !== "自定义");
+}
+
+form.querySelectorAll('input[name="mode"]').forEach((input) => {
+  input.addEventListener("change", updateModeFields);
+});
+
+questionFocus.addEventListener("change", updateCustomFocusField);
+updateModeFields();
+updateCustomFocusField();
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   startError.textContent = "";
   startButton.disabled = true;
   try {
     const formData = new FormData(form);
-    const data = await fetchJson("/api/interviews/start", {
+    currentMode = getSelectedMode();
+    const startUrl = currentMode === "project_drill" ? "/api/project-drills/start" : "/api/interviews/start";
+    const data = await fetchJson(startUrl, {
       method: "POST",
       body: formData,
     });
@@ -113,7 +143,8 @@ submitAnswerButton.addEventListener("click", async () => {
   answerEl.value = "";
   answerEl.disabled = true;
   try {
-    const data = await fetchJson(`/api/interviews/${sessionId}/answer`, {
+    const baseUrl = currentMode === "project_drill" ? "/api/project-drills" : "/api/interviews";
+    const data = await fetchJson(`${baseUrl}/${sessionId}/answer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -145,7 +176,10 @@ restartButton.addEventListener("click", () => {
   clearInterval(timerId);
   sessionId = null;
   currentQuestion = null;
+  currentMode = "interview";
   form.reset();
+  updateModeFields();
+  updateCustomFocusField();
   resultPanel.classList.add("hidden");
   interviewPanel.classList.add("hidden");
   startPanel.classList.remove("hidden");
@@ -156,7 +190,8 @@ async function renderSummary() {
     return;
   }
   clearInterval(timerId);
-  const summary = await fetchJson(`/api/interviews/${sessionId}/finish`, { method: "POST" });
+  const baseUrl = currentMode === "project_drill" ? "/api/project-drills" : "/api/interviews";
+  const summary = await fetchJson(`${baseUrl}/${sessionId}/finish`, { method: "POST" });
   interviewPanel.classList.add("hidden");
   resultPanel.classList.remove("hidden");
   document.querySelector("#total-score").textContent = `${summary.total_score}/100`;

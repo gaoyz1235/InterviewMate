@@ -5,7 +5,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.schemas.interview import AnswerRequest, AnswerResponse, InterviewSummary, StartInterviewResponse
-from app.services.interview_engine import current_question, finish_session, handle_answer, start_session
+from app.services.interview_engine import (
+    current_question,
+    finish_session,
+    handle_answer,
+    start_project_drill_session,
+    start_session,
+)
 from app.services.resume_parser import parse_resume_file
 
 router = APIRouter()
@@ -110,6 +116,79 @@ async def finish_interview(session_id: str) -> InterviewSummary:
         return summary
     except ValueError as exc:
         logger.warning("api.finish.failed session_id=%s error=%s", session_id, str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/api/project-drills/start")
+async def start_project_drill(
+    project_text: str = Form(""),
+    target_company: str = Form(""),
+    target_role: str = Form(""),
+    question_focus: str = Form(""),
+    custom_focus: str = Form(""),
+    round_count: int = Form(4),
+) -> StartInterviewResponse:
+    focus = custom_focus.strip() if question_focus == "自定义" else question_focus.strip()
+    project_text = project_text.strip()
+    logger.info(
+        "user.project_drill_start project_chars=%s project_preview=%r target_company=%r target_role=%r focus=%r round_count=%s",
+        len(project_text),
+        _preview(project_text),
+        target_company or "",
+        target_role or "",
+        focus or "",
+        round_count,
+    )
+    if not project_text:
+        raise HTTPException(status_code=400, detail="请粘贴一个具体项目经历。")
+    if question_focus == "自定义" and not focus:
+        raise HTTPException(status_code=400, detail="请选择或填写提问方向。")
+
+    context = start_project_drill_session(
+        project_text=project_text,
+        target_company=target_company,
+        target_role=target_role,
+        question_focus=focus,
+        round_count=round_count,
+    )
+    question = current_question(context)
+    if question is None:
+        logger.error("api.project_drill_start.failed reason=no_question session_id=%s", context.session_id)
+        raise HTTPException(status_code=500, detail="无法生成项目强化问题。")
+
+    return StartInterviewResponse(
+        session_id=context.session_id,
+        analysis=context.analysis,
+        plan=context.plan,
+        question=question,
+        progress=f"1/{context.plan.total_questions}",
+    )
+
+
+@router.post("/api/project-drills/{session_id}/answer", response_model=AnswerResponse)
+async def answer_project_drill(session_id: str, request: AnswerRequest) -> AnswerResponse:
+    logger.info(
+        "user.project_drill_answer session_id=%s question_id=%s elapsed_seconds=%s answer_chars=%s answer_preview=%r",
+        session_id,
+        request.question_id,
+        request.elapsed_seconds,
+        len(request.answer.strip()),
+        _preview(request.answer),
+    )
+    try:
+        return handle_answer(session_id, request)
+    except ValueError as exc:
+        logger.warning("api.project_drill_answer.failed session_id=%s error=%s", session_id, str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/api/project-drills/{session_id}/finish", response_model=InterviewSummary)
+async def finish_project_drill(session_id: str) -> InterviewSummary:
+    logger.info("user.project_drill_finish session_id=%s", session_id)
+    try:
+        return finish_session(session_id)
+    except ValueError as exc:
+        logger.warning("api.project_drill_finish.failed session_id=%s error=%s", session_id, str(exc))
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 

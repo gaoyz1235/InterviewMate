@@ -66,6 +66,73 @@ def build_resume_analysis_prompt(resume_text: str) -> str:
 """.strip()
 
 
+def build_project_drill_plan_prompt(
+    project_text: str,
+    question_focus: str,
+    target_company: str,
+    target_role: str,
+    round_count: int,
+) -> str:
+    return f"""
+请作为互联网大厂技术面试官，围绕候选人提供的单个项目经历生成项目强化训练问题。
+
+要求：
+1. 总共生成 {round_count} 个主问题，问题之间要有递进关系。
+2. 提问方向：{question_focus or "综合项目深挖"}。
+3. 每个问题只问一个重点，短而具体，适合技术一面。
+4. 必须紧扣项目经历，不要编造项目中没有的信息。
+5. 问题要覆盖职责、技术方案、难点、取舍、边界、指标、复盘中的若干方面。
+6. 只输出 JSON，不要输出 Markdown。
+
+输出格式：
+{{
+  "questions": [
+    {{
+      "question": "问题文本",
+      "related_resume": "该问题关联的项目证据，若没有则为空字符串"
+    }}
+  ]
+}}
+
+目标公司：{target_company or "未指定"}
+目标岗位：{target_role or "技术实习生"}
+项目经历：
+{project_text[:8000]}
+""".strip()
+
+
+def build_project_drill_summary_prompt(project_text: str, question_focus: str, transcript: str) -> str:
+    return f"""
+请根据项目强化训练记录，输出针对单个重点项目的复盘 JSON。
+
+评分要求：
+- 项目表达：是否讲清背景、个人职责、关键方案和结果。
+- 技术深度：是否讲清原理、取舍、边界、替代方案和风险。
+- 抗追问能力：面对连续追问是否能给出具体细节。
+- 简历呈现：这个项目写在简历上是否有说服力。
+
+只输出 JSON：
+{{
+  "scores": [
+    {{"name": "项目表达", "score": 0-25, "comment": "一句话"}},
+    {{"name": "技术深度", "score": 0-25, "comment": "一句话"}},
+    {{"name": "抗追问能力", "score": 0-25, "comment": "一句话"}},
+    {{"name": "简历呈现", "score": 0-25, "comment": "一句话"}}
+  ],
+  "exposed_problems": ["问题1", "问题2"],
+  "resume_suggestions": ["如何改写这个项目经历"],
+  "practice_suggestions": ["下一轮针对该项目练什么"]
+}}
+
+提问方向：{question_focus or "综合项目深挖"}
+项目经历：
+{project_text[:4000]}
+
+训练记录：
+{transcript}
+""".strip()
+
+
 def build_summary_prompt(transcript: str) -> str:
     return f"""
 请根据以下模拟面试记录输出 JSON：

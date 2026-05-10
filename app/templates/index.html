@@ -18,15 +18,62 @@
 
       <section id="start-panel" class="card">
         <form id="start-form">
-          <label>
-            简历 PDF
-            <input name="resume_file" type="file" accept=".pdf,.txt" />
-          </label>
+          <div class="mode-switch">
+            <label class="mode-option">
+              <input type="radio" name="mode" value="interview" checked />
+              完整模拟面试
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="mode" value="project_drill" />
+              项目强化模式
+            </label>
+          </div>
 
-          <label>
-            或直接粘贴脱敏简历
-            <textarea name="resume_text" rows="8" placeholder="建议删除姓名、手机号、邮箱等个人信息"></textarea>
-          </label>
+          <div id="interview-fields">
+            <label>
+              简历 PDF
+              <input name="resume_file" type="file" accept=".pdf,.txt" />
+            </label>
+
+            <label>
+              或直接粘贴脱敏简历
+              <textarea name="resume_text" rows="8" placeholder="建议删除姓名、手机号、邮箱等个人信息"></textarea>
+            </label>
+          </div>
+
+          <div id="project-drill-fields" class="hidden">
+            <label>
+              重点项目经历
+              <textarea name="project_text" rows="9" placeholder="粘贴一个具体项目经历：背景、职责、技术方案、难点、结果、指标等"></textarea>
+            </label>
+
+            <div class="grid">
+              <label>
+                提问方向
+                <select name="question_focus" id="question-focus">
+                  <option value="架构设计">架构设计</option>
+                  <option value="技术难点">技术难点</option>
+                  <option value="性能优化">性能优化</option>
+                  <option value="数据库/缓存">数据库/缓存</option>
+                  <option value="工程协作">工程协作</option>
+                  <option value="项目复盘">项目复盘</option>
+                  <option value="自定义">自定义</option>
+                </select>
+              </label>
+              <label id="custom-focus-label" class="hidden">
+                自定义方向
+                <input name="custom_focus" placeholder="例如：并发控制、权限设计、模型评估" />
+              </label>
+              <label>
+                强化轮数
+                <select name="round_count">
+                  <option value="3">3 轮</option>
+                  <option value="4" selected>4 轮</option>
+                  <option value="5">5 轮</option>
+                </select>
+              </label>
+            </div>
+          </div>
 
           <div class="grid">
             <label>
@@ -43,7 +90,7 @@
             </label>
           </div>
 
-          <button id="start-button" type="submit">开始模拟面试</button>
+          <button id="start-button" type="submit">开始</button>
           <p id="start-error" class="error"></p>
         </form>
       </section>

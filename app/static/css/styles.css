@@ -52,6 +52,7 @@ label {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   margin-top: 8px;
@@ -59,6 +60,30 @@ textarea {
   border: 1px solid #d1d5db;
   border-radius: 12px;
   font: inherit;
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.mode-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.mode-option input {
+  width: auto;
+  margin: 0;
 }
 
 .grid {
@@ -210,6 +235,10 @@ li {
 
 @media (max-width: 720px) {
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-switch {
     grid-template-columns: 1fr;
   }
 

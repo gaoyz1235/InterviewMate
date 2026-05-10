@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-QuestionType = Literal["项目深挖", "技术基础", "岗位匹配", "行为动机"]
+QuestionType = Literal["项目深挖", "技术基础", "岗位匹配", "行为动机", "项目强化"]
 InterviewAction = Literal["continue", "follow_up", "finish"]
 
 
@@ -45,9 +45,11 @@ class InterviewMessage(BaseModel):
 
 class InterviewContext(BaseModel):
     session_id: str
+    mode: Literal["interview", "project_drill"] = "interview"
     resume_text: str
     target_company: str = ""
     target_role: str = ""
+    question_focus: str = ""
     duration_minutes: int = Field(default=10, ge=3, le=60)
     analysis: ResumeAnalysis
     plan: InterviewPlan

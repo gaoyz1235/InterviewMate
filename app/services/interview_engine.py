@@ -13,7 +13,8 @@ from app.schemas.interview import (
 )
 from app.services.llm_client import LLMClient
 from app.services.plan_builder import build_interview_plan
-from app.services.prompt_builder import build_follow_up_prompt, build_summary_prompt
+from app.services.project_drill_builder import build_project_drill_plan
+from app.services.prompt_builder import build_follow_up_prompt, build_project_drill_summary_prompt, build_summary_prompt
 from app.services.resume_analyzer import analyze_resume
 from app.services.session_store import get_session, save_session
 
@@ -60,6 +61,47 @@ def start_session(
         target_company or "<empty>",
         target_role or "<empty>",
         duration_minutes,
+    )
+    return save_session(context)
+
+
+def start_project_drill_session(
+    project_text: str,
+    target_company: str,
+    target_role: str,
+    question_focus: str,
+    round_count: int,
+) -> InterviewContext:
+    analysis = _build_project_drill_analysis(project_text, question_focus)
+    plan = build_project_drill_plan(
+        project_text=project_text,
+        question_focus=question_focus,
+        target_company=target_company,
+        target_role=target_role,
+        round_count=round_count,
+    )
+    context = InterviewContext(
+        session_id=uuid4().hex,
+        resume_text=project_text,
+        target_company=target_company,
+        target_role=target_role,
+        duration_minutes=round_count * 5,
+        analysis=analysis,
+        plan=plan,
+        started_at=time.time(),
+    )
+
+    first_question = current_question(context)
+    if first_question:
+        context.history.append(_assistant_message(first_question))
+    logger.info(
+        "project_drill.start session_id=%s project_chars=%s focus=%s rounds=%s target_company=%s target_role=%s",
+        context.session_id,
+        len(project_text),
+        question_focus or "<empty>",
+        round_count,
+        target_company or "<empty>",
+        target_role or "<empty>",
     )
     return save_session(context)
 
@@ -316,9 +358,18 @@ def _llm_summary(context: InterviewContext) -> InterviewSummary | None:
         logger.info("interview.llm_summary.skip session_id=%s reason=not_configured", context.session_id)
         return None
     transcript = "\n".join(f"{item.role}: {item.content}" for item in context.history)
+    prompt = (
+        build_project_drill_summary_prompt(
+            project_text=context.resume_text,
+            question_focus=_project_drill_focus(context),
+            transcript=transcript,
+        )
+        if _is_project_drill_context(context)
+        else build_summary_prompt(transcript)
+    )
     data = client.chat_json(
         "你是互联网大厂技术面试复盘专家，只输出 JSON。",
-        build_summary_prompt(transcript),
+        prompt,
         timeout_seconds=120,
     )
     if not data:
@@ -401,3 +452,31 @@ def _require_session(session_id: str) -> InterviewContext:
         logger.warning("interview.session.missing session_id=%s", session_id)
         raise ValueError("面试会话不存在或已过期。")
     return context
+
+
+def _build_project_drill_analysis(project_text: str, question_focus: str):
+    from app.schemas.interview import ResumeAnalysis, ResumeProject
+
+    project = ResumeProject(
+        name="重点项目强化",
+        description=project_text[:500],
+        technologies=[],
+        evidence=project_text,
+    )
+    return ResumeAnalysis(
+        projects=[project],
+        skills=[],
+        risks=[f"项目强化方向：{question_focus or '综合项目深挖'}"],
+        summary=f"项目强化模式，提问方向：{question_focus or '综合项目深挖'}。",
+    )
+
+
+def _is_project_drill_context(context: InterviewContext) -> bool:
+    return bool(context.plan.questions) and all(question.question_type == "项目强化" for question in context.plan.questions)
+
+
+def _project_drill_focus(context: InterviewContext) -> str:
+    prefix = "项目强化模式，提问方向："
+    if context.analysis.summary.startswith(prefix):
+        return context.analysis.summary.removeprefix(prefix).rstrip("。")
+    return "综合项目深挖"
