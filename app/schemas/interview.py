@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -40,15 +41,27 @@ class InterviewMessage(BaseModel):
     content: str
     question_id: str | None = None
     question_type: QuestionType | None = None
+=======
+from pydantic import BaseModel, Field
+
+
+class InterviewMessage(BaseModel):
+    role: str
+    content: str
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
     elapsed_seconds: int | None = None
 
 
 class InterviewContext(BaseModel):
+<<<<<<< HEAD
     session_id: str
+=======
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
     resume_text: str
     target_company: str = ""
     target_role: str = ""
     duration_minutes: int = Field(default=10, ge=3, le=60)
+<<<<<<< HEAD
     analysis: ResumeAnalysis
     plan: InterviewPlan
     history: list[InterviewMessage] = Field(default_factory=list)
@@ -91,3 +104,6 @@ class InterviewSummary(BaseModel):
     resume_suggestions: list[str]
     practice_suggestions: list[str]
     transcript: list[InterviewMessage]
+=======
+    history: list[InterviewMessage] = Field(default_factory=list)
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385

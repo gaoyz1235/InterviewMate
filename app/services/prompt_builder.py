@@ -17,6 +17,7 @@ def build_interviewer_prompt(
 简历内容：
 {resume_text[:4000]}
 """.strip()
+<<<<<<< HEAD
 
 
 def build_follow_up_prompt(question: str, answer: str, elapsed_seconds: int) -> str:
@@ -52,3 +53,5 @@ def build_summary_prompt(transcript: str) -> str:
 面试记录：
 {transcript}
 """.strip()
+=======
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import logging
 import time
 from uuid import uuid4
@@ -23,10 +24,17 @@ logger = logging.getLogger(__name__)
 
 
 def start_session(
+=======
+from app.services.prompt_builder import build_interviewer_prompt
+
+
+def build_first_question(
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
     resume_text: str,
     target_company: str,
     target_role: str,
     duration_minutes: int,
+<<<<<<< HEAD
 ) -> InterviewContext:
     analysis = analyze_resume(resume_text)
     plan = build_interview_plan(
@@ -37,10 +45,16 @@ def start_session(
     )
     context = InterviewContext(
         session_id=uuid4().hex,
+=======
+) -> str:
+    """Temporary rule-based first question before the LLM adapter is added."""
+    _ = build_interviewer_prompt(
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
         resume_text=resume_text,
         target_company=target_company,
         target_role=target_role,
         duration_minutes=duration_minutes,
+<<<<<<< HEAD
         analysis=analysis,
         plan=plan,
         started_at=time.time(),
@@ -366,3 +380,16 @@ def _require_session(session_id: str) -> InterviewContext:
         logger.warning("interview.session.missing session_id=%s", session_id)
         raise ValueError("面试会话不存在或已过期。")
     return context
+=======
+    )
+
+    if not resume_text:
+        return "请先粘贴或上传一份脱敏简历，我会基于你的项目经历开始模拟面试。"
+
+    role = target_role or "目标岗位"
+    company = target_company or "目标公司"
+    return (
+        f"我们先从项目经历开始。假设你正在面试{company}的{role}，"
+        "请你选择简历中最能体现技术深度的一个项目，用 2 分钟介绍背景、你的职责、关键技术方案和最终结果。"
+    )
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385

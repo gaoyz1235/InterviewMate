@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 import logging
 from pathlib import Path
 
+=======
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -9,13 +12,17 @@ from app.core.config import settings
 
 
 def create_app() -> FastAPI:
+<<<<<<< HEAD
     configure_logging()
+=======
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
     app = FastAPI(title=settings.app_name)
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     app.include_router(router)
     return app
 
 
+<<<<<<< HEAD
 def configure_logging() -> None:
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
@@ -41,4 +48,6 @@ def configure_logging() -> None:
     logging.getLogger(__name__).info("logging.configured file=%s", log_file.resolve())
 
 
+=======
+>>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 app = create_app()
