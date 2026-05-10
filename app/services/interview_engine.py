@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import logging
 import time
 from uuid import uuid4
@@ -24,17 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 def start_session(
-=======
-from app.services.prompt_builder import build_interviewer_prompt
-
-
-def build_first_question(
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
     resume_text: str,
     target_company: str,
     target_role: str,
     duration_minutes: int,
-<<<<<<< HEAD
 ) -> InterviewContext:
     analysis = analyze_resume(resume_text)
     plan = build_interview_plan(
@@ -45,16 +37,10 @@ def build_first_question(
     )
     context = InterviewContext(
         session_id=uuid4().hex,
-=======
-) -> str:
-    """Temporary rule-based first question before the LLM adapter is added."""
-    _ = build_interviewer_prompt(
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
         resume_text=resume_text,
         target_company=target_company,
         target_role=target_role,
         duration_minutes=duration_minutes,
-<<<<<<< HEAD
         analysis=analysis,
         plan=plan,
         started_at=time.time(),
@@ -108,8 +94,8 @@ def handle_answer(session_id: str, request: AnswerRequest) -> AnswerResponse:
         return AnswerResponse(action="finish", progress=_progress(context), message="面试时间已到。")
 
     current = _question_from_request(context, request.question_id)
-    if current and _should_follow_up(current, request):
-        follow_up = _build_follow_up_question(current, request)
+    follow_up = _decide_follow_up(current, request) if current else None
+    if follow_up:
         context.history.append(_assistant_message(follow_up))
         save_session(context)
         logger.info(
@@ -194,41 +180,63 @@ def _move_to_next_question(context: InterviewContext) -> InterviewQuestion:
     return question
 
 
-def _should_follow_up(question: InterviewQuestion, request: AnswerRequest) -> bool:
-    answer = request.answer.strip()
+def _decide_follow_up(question: InterviewQuestion, request: AnswerRequest) -> InterviewQuestion | None:
     if question.follow_up_depth >= MAX_FOLLOW_UP_DEPTH:
         logger.info("interview.follow_up.decision need=false reason=max_depth question_id=%s", question.question_id)
-        return False
+        return None
+
+    llm_decision = _llm_follow_up_decision(question, request)
+    if llm_decision is not None:
+        need_follow_up, follow_up_question, reason = llm_decision
+        logger.info(
+            "interview.follow_up.decision source=llm need=%s reason=%r question_id=%s",
+            need_follow_up,
+            reason,
+            question.question_id,
+        )
+        if not need_follow_up:
+            return None
+        if follow_up_question:
+            return _make_follow_up_question(question, follow_up_question, "llm")
+        logger.warning("interview.follow_up.llm_invalid reason=empty_follow_up_question question_id=%s", question.question_id)
+
+    if _should_follow_up_by_rule(question, request):
+        return _build_rule_follow_up_question(question, request)
+    return None
+
+
+def _should_follow_up_by_rule(question: InterviewQuestion, request: AnswerRequest) -> bool:
+    answer = request.answer.strip()
     if request.elapsed_seconds > MAX_SECONDS_PER_ANSWER:
-        logger.info("interview.follow_up.decision need=true reason=overtime question_id=%s elapsed_seconds=%s", question.question_id, request.elapsed_seconds)
+        logger.info("interview.follow_up.decision source=rule need=true reason=overtime question_id=%s elapsed_seconds=%s", question.question_id, request.elapsed_seconds)
         return True
     if len(answer) < 80:
-        logger.info("interview.follow_up.decision need=true reason=short_answer question_id=%s answer_chars=%s", question.question_id, len(answer))
+        logger.info("interview.follow_up.decision source=rule need=true reason=short_answer question_id=%s answer_chars=%s", question.question_id, len(answer))
         return True
     weak_signals = ["不知道", "不清楚", "应该", "大概", "可能", "忘了"]
     matched = [signal for signal in weak_signals if signal in answer]
     if matched:
-        logger.info("interview.follow_up.decision need=true reason=weak_signal question_id=%s signals=%s", question.question_id, matched)
+        logger.info("interview.follow_up.decision source=rule need=true reason=weak_signal question_id=%s signals=%s", question.question_id, matched)
         return True
-    logger.info("interview.follow_up.decision need=false reason=answer_ok question_id=%s", question.question_id)
+    logger.info("interview.follow_up.decision source=rule need=false reason=answer_ok question_id=%s", question.question_id)
     return False
 
 
-def _build_follow_up_question(question: InterviewQuestion, request: AnswerRequest) -> InterviewQuestion:
-    llm_question = _llm_follow_up(question, request)
-    source = "llm"
-    if not llm_question:
-        source = "rule"
-        if request.elapsed_seconds > MAX_SECONDS_PER_ANSWER:
-            llm_question = "刚才这题超出了 3 分钟。请你用 30 秒重新概括核心结论，并说明最关键的技术取舍。"
-        elif len(request.answer.strip()) < 80:
-            llm_question = "你的回答比较短。请补充一个具体实现细节：你当时遇到的难点是什么，最终怎么解决？"
-        else:
-            llm_question = "请继续深入一点：这个方案的边界条件或潜在风险是什么？"
+def _build_rule_follow_up_question(question: InterviewQuestion, request: AnswerRequest) -> InterviewQuestion:
+    if request.elapsed_seconds > MAX_SECONDS_PER_ANSWER:
+        follow_up_question = "刚才这题超出了 3 分钟。请你用 30 秒重新概括核心结论，并说明最关键的技术取舍。"
+    elif len(request.answer.strip()) < 80:
+        follow_up_question = "你的回答比较短。请补充一个具体实现细节：你当时遇到的难点是什么，最终怎么解决？"
+    else:
+        follow_up_question = "请继续深入一点：这个方案的边界条件或潜在风险是什么？"
+    return _make_follow_up_question(question, follow_up_question, "rule")
+
+
+def _make_follow_up_question(question: InterviewQuestion, follow_up_question: str, source: str) -> InterviewQuestion:
     follow_up = InterviewQuestion(
         question_id=f"{question.question_id}_f{question.follow_up_depth + 1}",
         question_type=question.question_type,
-        question=llm_question,
+        question=follow_up_question,
         related_resume=question.related_resume,
         follow_up_depth=question.follow_up_depth + 1,
     )
@@ -242,21 +250,29 @@ def _build_follow_up_question(question: InterviewQuestion, request: AnswerReques
     return follow_up
 
 
-def _llm_follow_up(question: InterviewQuestion, request: AnswerRequest) -> str:
+def _llm_follow_up_decision(question: InterviewQuestion, request: AnswerRequest) -> tuple[bool, str, str] | None:
     client = LLMClient()
     if not client.configured:
         logger.info("interview.llm_follow_up.skip reason=not_configured question_id=%s", question.question_id)
-        return ""
+        return None
     data = client.chat_json(
         "你是严格但友好的互联网技术面试官，只输出 JSON。",
         build_follow_up_prompt(question.question, request.answer, request.elapsed_seconds),
     )
-    if data.get("need_follow_up") is False:
-        logger.info("interview.llm_follow_up.no_follow_up question_id=%s", question.question_id)
-        return ""
+    if "need_follow_up" not in data:
+        logger.warning("interview.llm_follow_up.invalid reason=missing_need_follow_up question_id=%s", question.question_id)
+        return None
+    need_follow_up = bool(data.get("need_follow_up"))
     follow_up = str(data.get("follow_up_question") or "").strip()
-    logger.info("interview.llm_follow_up.done question_id=%s follow_up_chars=%s", question.question_id, len(follow_up))
-    return follow_up
+    reason = str(data.get("reason") or "").strip()
+    logger.info(
+        "interview.llm_follow_up.done question_id=%s need_follow_up=%s follow_up_chars=%s reason=%r",
+        question.question_id,
+        need_follow_up,
+        len(follow_up),
+        reason,
+    )
+    return need_follow_up, follow_up, reason
 
 
 def _build_summary(context: InterviewContext) -> InterviewSummary:
@@ -380,16 +396,3 @@ def _require_session(session_id: str) -> InterviewContext:
         logger.warning("interview.session.missing session_id=%s", session_id)
         raise ValueError("面试会话不存在或已过期。")
     return context
-=======
-    )
-
-    if not resume_text:
-        return "请先粘贴或上传一份脱敏简历，我会基于你的项目经历开始模拟面试。"
-
-    role = target_role or "目标岗位"
-    company = target_company or "目标公司"
-    return (
-        f"我们先从项目经历开始。假设你正在面试{company}的{role}，"
-        "请你选择简历中最能体现技术深度的一个项目，用 2 分钟介绍背景、你的职责、关键技术方案和最终结果。"
-    )
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385

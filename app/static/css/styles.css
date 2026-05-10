@@ -82,7 +82,6 @@ button:disabled {
   opacity: 0.55;
 }
 
-<<<<<<< HEAD
 .secondary {
   background: #eef2ff;
   color: #3730a3;
@@ -93,8 +92,6 @@ button:disabled {
   font-weight: 700;
 }
 
-=======
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 .hidden {
   display: none;
 }
@@ -108,7 +105,6 @@ button:disabled {
   background: #eef2ff;
 }
 
-<<<<<<< HEAD
 .interview-meta,
 .actions,
 .result-header {
@@ -191,13 +187,10 @@ li {
   line-height: 1.6;
 }
 
-=======
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 @media (max-width: 720px) {
   .grid {
     grid-template-columns: 1fr;
   }
-<<<<<<< HEAD
 
   .score-grid {
     grid-template-columns: 1fr;
@@ -209,6 +202,4 @@ li {
     align-items: flex-start;
     flex-direction: column;
   }
-=======
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 }

@@ -1,17 +1,11 @@
-<<<<<<< HEAD
 import logging
-=======
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 from io import BytesIO
 
 from fastapi import UploadFile
 from pypdf import PdfReader
 
-<<<<<<< HEAD
 logger = logging.getLogger(__name__)
 
-=======
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 
 async def parse_resume_file(file: UploadFile) -> str:
     """Extract text from an uploaded PDF resume.
@@ -20,7 +14,6 @@ async def parse_resume_file(file: UploadFile) -> str:
     pasted text so the core demo is not blocked by PDF extraction failures.
     """
     content = await file.read()
-<<<<<<< HEAD
     logger.info(
         "resume_parser.read filename=%s content_type=%s bytes=%s",
         file.filename or "<empty>",
@@ -41,14 +34,3 @@ async def parse_resume_file(file: UploadFile) -> str:
     text = "\n\n".join(page for page in pages if page)
     logger.info("resume_parser.pdf.done filename=%s pages=%s chars=%s", file.filename or "<empty>", len(reader.pages), len(text))
     return text
-=======
-    if not content:
-        return ""
-
-    if not (file.filename or "").lower().endswith(".pdf"):
-        return content.decode("utf-8", errors="ignore")
-
-    reader = PdfReader(BytesIO(content))
-    pages = [(page.extract_text() or "").strip() for page in reader.pages]
-    return "\n\n".join(page for page in pages if page)
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385

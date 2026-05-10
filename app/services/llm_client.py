@@ -100,7 +100,7 @@ class LLMClient:
         )
         started = time.perf_counter()
         try:
-            with request.urlopen(req, timeout=20) as response:
+            with request.urlopen(req, timeout=60) as response:
                 raw = response.read().decode("utf-8")
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
                 logger.info(

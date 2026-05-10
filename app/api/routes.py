@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import logging
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -7,21 +6,11 @@ from fastapi.templating import Jinja2Templates
 
 from app.schemas.interview import AnswerRequest, AnswerResponse, InterviewSummary, StartInterviewResponse
 from app.services.interview_engine import current_question, finish_session, handle_answer, start_session
-=======
-from fastapi import APIRouter, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-
-from app.services.interview_engine import build_first_question
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 from app.services.resume_parser import parse_resume_file
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
-<<<<<<< HEAD
 logger = logging.getLogger(__name__)
-=======
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -36,7 +25,6 @@ async def start_interview(
     duration_minutes: int = Form(10),
     resume_text: str = Form(""),
     resume_file: UploadFile | None = File(None),
-<<<<<<< HEAD
 ) -> StartInterviewResponse:
     logger.info(
         "user.start_input has_file=%s resume_text_chars=%s resume_text_preview=%r target_company=%r target_role=%r duration_minutes=%s",
@@ -62,20 +50,11 @@ async def start_interview(
         raise HTTPException(status_code=400, detail="请上传 PDF 或粘贴脱敏简历文本。")
 
     context = start_session(
-=======
-) -> dict:
-    parsed_resume = resume_text.strip()
-    if resume_file and resume_file.filename:
-        parsed_resume = await parse_resume_file(resume_file)
-
-    question = build_first_question(
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
         resume_text=parsed_resume,
         target_company=target_company,
         target_role=target_role,
         duration_minutes=duration_minutes,
     )
-<<<<<<< HEAD
     question = current_question(context)
     if question is None:
         logger.error("api.start.failed reason=no_question session_id=%s", context.session_id)
@@ -139,10 +118,3 @@ def _preview(text: str, limit: int = 300) -> str:
     if len(compact) <= limit:
         return compact
     return f"{compact[:limit]}..."
-=======
-    return {
-        "session_id": "local-demo",
-        "resume_text": parsed_resume,
-        "question": question,
-    }
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385

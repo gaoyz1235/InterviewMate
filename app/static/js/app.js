@@ -1,5 +1,4 @@
 const form = document.querySelector("#start-form");
-<<<<<<< HEAD
 const startPanel = document.querySelector("#start-panel");
 const interviewPanel = document.querySelector("#interview-panel");
 const resultPanel = document.querySelector("#result-panel");
@@ -19,19 +18,10 @@ let currentQuestion = null;
 let timerId = null;
 let seconds = 0;
 const maxSeconds = 180;
-=======
-const panel = document.querySelector("#interview-panel");
-const questionEl = document.querySelector("#question");
-const timerEl = document.querySelector("#timer");
-
-let timerId = null;
-let seconds = 0;
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
 
 function startTimer() {
   clearInterval(timerId);
   seconds = 0;
-<<<<<<< HEAD
   renderTimer();
   timerId = setInterval(() => {
     seconds += 1;
@@ -203,25 +193,3 @@ function appendTranscriptItem(parent, item) {
   div.querySelector(".message-content").textContent = item.content;
   parent.appendChild(div);
 }
-=======
-  timerId = setInterval(() => {
-    seconds += 1;
-    const minutes = String(Math.floor(seconds / 60)).padStart(2, "0");
-    const rest = String(seconds % 60).padStart(2, "0");
-    timerEl.textContent = `${minutes}:${rest}`;
-  }, 1000);
-}
-
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const formData = new FormData(form);
-  const response = await fetch("/api/interviews/start", {
-    method: "POST",
-    body: formData,
-  });
-  const data = await response.json();
-  questionEl.textContent = data.question;
-  panel.classList.remove("hidden");
-  startTimer();
-});
->>>>>>> 06f12c536e077aed0071d794b6d79e6fb2923385
