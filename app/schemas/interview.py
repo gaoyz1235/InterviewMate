@@ -66,6 +66,17 @@ class StartInterviewResponse(BaseModel):
     progress: str
 
 
+class RollbackRequest(BaseModel):
+    question_id: str
+
+
+class RollbackResponse(BaseModel):
+    session_id: str
+    question: InterviewQuestion
+    progress: str
+    message: str = ""
+
+
 class AnswerRequest(BaseModel):
     question_id: str
     answer: str = Field(min_length=1)
@@ -77,12 +88,19 @@ class AnswerResponse(BaseModel):
     question: InterviewQuestion | None = None
     progress: str
     message: str = ""
+    thinking: str = ""
 
 
 class ScoreItem(BaseModel):
     name: str
     score: int = Field(ge=0, le=25)
     comment: str
+
+
+class ResumeRewrite(BaseModel):
+    original: str
+    rewritten: str
+    reason: str = ""
 
 
 class InterviewSummary(BaseModel):
@@ -93,3 +111,4 @@ class InterviewSummary(BaseModel):
     resume_suggestions: list[str]
     practice_suggestions: list[str]
     transcript: list[InterviewMessage]
+    resume_rewrites: list[ResumeRewrite] = Field(default_factory=list)

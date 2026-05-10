@@ -160,6 +160,9 @@ submitAnswerButton.addEventListener("click", async () => {
     if (data.action === "continue") {
       appendMessage("system", "上一轮追问结束，进入下一道面试题。", data.progress);
     }
+    if (data.action === "follow_up" && data.thinking) {
+      appendThinking(data.thinking);
+    }
     showQuestion(data.question, data.progress);
   } catch (error) {
     appendMessage("assistant", error.message);
@@ -190,16 +193,21 @@ async function renderSummary() {
     return;
   }
   clearInterval(timerId);
-  const baseUrl = currentMode === "project_drill" ? "/api/project-drills" : "/api/interviews";
-  const summary = await fetchJson(`${baseUrl}/${sessionId}/finish`, { method: "POST" });
+  const summary = await fetchJson(`${apiBaseUrl()}/${sessionId}/finish`, { method: "POST" });
   interviewPanel.classList.add("hidden");
   resultPanel.classList.remove("hidden");
   document.querySelector("#total-score").textContent = `${summary.total_score}/100`;
   renderScores(summary.scores);
   renderList("#problem-list", summary.exposed_problems);
   renderList("#resume-suggestion-list", summary.resume_suggestions);
+  renderResumeRewrites(summary.resume_rewrites || []);
   renderList("#practice-suggestion-list", summary.practice_suggestions);
+  renderCheckpoints(summary.transcript);
   renderTranscript(summary.transcript);
+}
+
+function apiBaseUrl() {
+  return currentMode === "project_drill" ? "/api/project-drills" : "/api/interviews";
 }
 
 function renderScores(scores) {
@@ -214,6 +222,14 @@ function renderScores(scores) {
   });
 }
 
+function appendThinking(content) {
+  const item = document.createElement("div");
+  item.className = "thinking";
+  item.textContent = content;
+  messagesEl.appendChild(item);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
 function renderList(selector, items) {
   const list = document.querySelector(selector);
   list.innerHTML = "";
@@ -222,6 +238,80 @@ function renderList(selector, items) {
     li.textContent = item;
     list.appendChild(li);
   });
+}
+
+function renderResumeRewrites(items) {
+  const section = document.querySelector("#resume-rewrite-section");
+  const list = document.querySelector("#resume-rewrite-list");
+  const shouldShow = currentMode === "project_drill" && items.length > 0;
+  section.classList.toggle("hidden", !shouldShow);
+  list.innerHTML = "";
+  if (!shouldShow) {
+    return;
+  }
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "rewrite-card";
+    card.innerHTML = `
+      <div class="rewrite-label">原句</div>
+      <p class="rewrite-original"></p>
+      <div class="rewrite-label">改句</div>
+      <p class="rewrite-new"></p>
+      <div class="rewrite-label">修改理由</div>
+      <p class="rewrite-reason"></p>
+    `;
+    card.querySelector(".rewrite-original").textContent = item.original || "";
+    card.querySelector(".rewrite-new").textContent = item.rewritten || "";
+    card.querySelector(".rewrite-reason").textContent = item.reason || "";
+    list.appendChild(card);
+  });
+}
+
+function renderCheckpoints(transcript) {
+  const list = document.querySelector("#checkpoint-list");
+  list.innerHTML = "";
+  const seen = new Set();
+  const checkpoints = transcript.filter((item) => {
+    const questionId = item.question_id || "";
+    if (item.role !== "assistant" || !questionId || questionId.includes("_f") || seen.has(questionId)) {
+      return false;
+    }
+    seen.add(questionId);
+    return true;
+  });
+
+  checkpoints.forEach((item, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "checkpoint-button secondary";
+    button.textContent = `回到第 ${index + 1} 题：${previewText(item.content, 42)}`;
+    button.addEventListener("click", () => rollbackToCheckpoint(item.question_id));
+    list.appendChild(button);
+  });
+}
+
+async function rollbackToCheckpoint(questionId) {
+  if (!sessionId || !questionId) {
+    return;
+  }
+  const data = await fetchJson(`${apiBaseUrl()}/${sessionId}/rollback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question_id: questionId }),
+  });
+  resultPanel.classList.add("hidden");
+  interviewPanel.classList.remove("hidden");
+  messagesEl.innerHTML = "";
+  appendMessage("system", data.message || "已回到检查点，请重新作答。", data.progress);
+  showQuestion(data.question, data.progress);
+}
+
+function previewText(text, limit) {
+  const compact = (text || "").replace(/\s+/g, " ").trim();
+  if (compact.length <= limit) {
+    return compact;
+  }
+  return `${compact.slice(0, limit)}...`;
 }
 
 function renderTranscript(transcript) {

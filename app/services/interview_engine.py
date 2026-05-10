@@ -9,6 +9,8 @@ from app.schemas.interview import (
     InterviewMessage,
     InterviewQuestion,
     InterviewSummary,
+    ResumeRewrite,
+    RollbackResponse,
     ScoreItem,
 )
 from app.services.llm_client import LLMClient
@@ -38,6 +40,7 @@ def start_session(
     )
     context = InterviewContext(
         session_id=uuid4().hex,
+        mode="interview",
         resume_text=resume_text,
         target_company=target_company,
         target_role=target_role,
@@ -82,9 +85,11 @@ def start_project_drill_session(
     )
     context = InterviewContext(
         session_id=uuid4().hex,
+        mode="project_drill",
         resume_text=project_text,
         target_company=target_company,
         target_role=target_role,
+        question_focus=question_focus,
         duration_minutes=round_count * 5,
         analysis=analysis,
         plan=plan,
@@ -136,7 +141,8 @@ def handle_answer(session_id: str, request: AnswerRequest) -> AnswerResponse:
         return AnswerResponse(action="finish", progress=_progress(context), message="面试时间已到。")
 
     current = _question_from_request(context, request.question_id)
-    follow_up = _decide_follow_up(current, request) if current else None
+    follow_up_result = _decide_follow_up(current, request) if current else None
+    follow_up = follow_up_result[0] if follow_up_result else None
     if follow_up:
         context.history.append(_assistant_message(follow_up))
         save_session(context)
@@ -147,7 +153,12 @@ def handle_answer(session_id: str, request: AnswerRequest) -> AnswerResponse:
             follow_up.follow_up_depth,
             follow_up.question_type,
         )
-        return AnswerResponse(action="follow_up", question=follow_up, progress=_progress(context))
+        return AnswerResponse(
+            action="follow_up",
+            question=follow_up,
+            progress=_progress(context),
+            thinking=follow_up_result[1],
+        )
 
     if _is_last_question(context):
         context.finished = True
@@ -182,10 +193,57 @@ def finish_session(session_id: str) -> InterviewSummary:
     return summary
 
 
+def rollback_session(session_id: str, question_id: str) -> RollbackResponse:
+    context = _require_session(session_id)
+    base_question_id = question_id.split("_f", 1)[0]
+    target_index = _question_index_by_id(context, base_question_id)
+    if target_index is None:
+        raise ValueError("无法找到对应的检查点。")
+
+    context.plan.current_index = target_index
+    context.finished = False
+    target_question = current_question(context)
+    if target_question is None:
+        raise ValueError("无法恢复到该检查点。")
+
+    context.history = _history_until_checkpoint(context.history, base_question_id)
+    if not context.history or context.history[-1].question_id != target_question.question_id:
+        context.history.append(_assistant_message(target_question))
+
+    save_session(context)
+    logger.info(
+        "interview.rollback session_id=%s question_id=%s progress=%s history_messages=%s",
+        session_id,
+        target_question.question_id,
+        _progress(context),
+        len(context.history),
+    )
+    return RollbackResponse(
+        session_id=context.session_id,
+        question=target_question,
+        progress=_progress(context),
+        message="已回到该问题检查点，请重新作答。",
+    )
+
+
 def current_question(context: InterviewContext) -> InterviewQuestion | None:
     if not context.plan.questions:
         return None
     return context.plan.questions[context.plan.current_index]
+
+
+def _question_index_by_id(context: InterviewContext, question_id: str) -> int | None:
+    for index, question in enumerate(context.plan.questions):
+        if question.question_id == question_id:
+            return index
+    return None
+
+
+def _history_until_checkpoint(history: list[InterviewMessage], question_id: str) -> list[InterviewMessage]:
+    for index, message in enumerate(history):
+        if message.role == "assistant" and message.question_id == question_id:
+            return history[: index + 1]
+    return []
 
 
 def _question_from_request(context: InterviewContext, question_id: str) -> InterviewQuestion | None:
@@ -222,7 +280,7 @@ def _move_to_next_question(context: InterviewContext) -> InterviewQuestion:
     return question
 
 
-def _decide_follow_up(question: InterviewQuestion, request: AnswerRequest) -> InterviewQuestion | None:
+def _decide_follow_up(question: InterviewQuestion, request: AnswerRequest) -> tuple[InterviewQuestion, str] | None:
     if question.follow_up_depth >= MAX_FOLLOW_UP_DEPTH:
         logger.info("interview.follow_up.decision need=false reason=max_depth question_id=%s", question.question_id)
         return None
@@ -239,29 +297,30 @@ def _decide_follow_up(question: InterviewQuestion, request: AnswerRequest) -> In
         if not need_follow_up:
             return None
         if follow_up_question:
-            return _make_follow_up_question(question, follow_up_question, "llm")
+            return _make_follow_up_question(question, follow_up_question, "llm"), _format_thinking(reason)
         logger.warning("interview.follow_up.llm_invalid reason=empty_follow_up_question question_id=%s", question.question_id)
 
-    if _should_follow_up_by_rule(question, request):
-        return _build_rule_follow_up_question(question, request)
+    rule_reason = _rule_follow_up_reason(question, request)
+    if rule_reason:
+        return _build_rule_follow_up_question(question, request), _format_thinking(rule_reason)
     return None
 
 
-def _should_follow_up_by_rule(question: InterviewQuestion, request: AnswerRequest) -> bool:
+def _rule_follow_up_reason(question: InterviewQuestion, request: AnswerRequest) -> str:
     answer = request.answer.strip()
     if request.elapsed_seconds > MAX_SECONDS_PER_ANSWER:
         logger.info("interview.follow_up.decision source=rule need=true reason=overtime question_id=%s elapsed_seconds=%s", question.question_id, request.elapsed_seconds)
-        return True
+        return "候选人回答超过 3 分钟，需要先压缩表达并提炼关键技术取舍。"
     if len(answer) < 80:
         logger.info("interview.follow_up.decision source=rule need=true reason=short_answer question_id=%s answer_chars=%s", question.question_id, len(answer))
-        return True
+        return "候选人回答偏短，暂时看不出具体实现细节和真实贡献。"
     weak_signals = ["不知道", "不清楚", "应该", "大概", "可能", "忘了"]
     matched = [signal for signal in weak_signals if signal in answer]
     if matched:
         logger.info("interview.follow_up.decision source=rule need=true reason=weak_signal question_id=%s signals=%s", question.question_id, matched)
-        return True
+        return "候选人回答中出现不确定表达，需要追问验证掌握程度。"
     logger.info("interview.follow_up.decision source=rule need=false reason=answer_ok question_id=%s", question.question_id)
-    return False
+    return ""
 
 
 def _build_rule_follow_up_question(question: InterviewQuestion, request: AnswerRequest) -> InterviewQuestion:
@@ -318,6 +377,13 @@ def _llm_follow_up_decision(question: InterviewQuestion, request: AnswerRequest)
     return need_follow_up, follow_up, reason
 
 
+def _format_thinking(reason: str) -> str:
+    reason = reason.strip() or "这个回答还有可以继续深挖的地方。"
+    if reason.startswith("面试官思考"):
+        return reason
+    return f"面试官思考：{reason}"
+
+
 def _build_summary(context: InterviewContext) -> InterviewSummary:
     llm_summary = _llm_summary(context)
     if llm_summary:
@@ -349,6 +415,7 @@ def _build_summary(context: InterviewContext) -> InterviewSummary:
         resume_suggestions=_resume_suggestions(context, exposed),
         practice_suggestions=_practice_suggestions(exposed),
         transcript=context.history,
+        resume_rewrites=_fallback_resume_rewrites(context) if _is_project_drill_context(context) else [],
     )
 
 
@@ -386,6 +453,13 @@ def _llm_summary(context: InterviewContext) -> InterviewSummary | None:
             resume_suggestions=list(data.get("resume_suggestions", [])),
             practice_suggestions=list(data.get("practice_suggestions", [])),
             transcript=context.history,
+            resume_rewrites=[
+                ResumeRewrite(**item)
+                for item in data.get("resume_rewrites", [])
+                if isinstance(item, dict)
+            ]
+            if _is_project_drill_context(context)
+            else [],
         )
     except Exception as exc:
         logger.exception("interview.llm_summary.invalid session_id=%s error=%s", context.session_id, exc.__class__.__name__)
@@ -422,6 +496,23 @@ def _practice_suggestions(exposed: list[str]) -> list[str]:
         suggestions.append("用计时器练习 30 秒结论版和 2 分钟展开版回答。")
     suggestions.append("每次练习后记录被追问卡住的问题，反向补充简历和知识点。")
     return suggestions[:4]
+
+
+def _fallback_resume_rewrites(context: InterviewContext) -> list[ResumeRewrite]:
+    if not context.resume_text.strip():
+        return []
+    original = context.resume_text.strip().splitlines()[0][:240]
+    rewritten = (
+        f"围绕「{_project_drill_focus(context)}」补充该项目的背景、个人职责、关键技术方案、"
+        "可验证结果和被追问时暴露出的改进点。"
+    )
+    return [
+        ResumeRewrite(
+            original=original,
+            rewritten=rewritten,
+            reason="模型总结不可用时的兜底改写建议，重点提醒补充个人贡献、技术方案和结果指标。",
+        )
+    ]
 
 
 def _is_last_question(context: InterviewContext) -> bool:
@@ -472,10 +563,14 @@ def _build_project_drill_analysis(project_text: str, question_focus: str):
 
 
 def _is_project_drill_context(context: InterviewContext) -> bool:
-    return bool(context.plan.questions) and all(question.question_type == "项目强化" for question in context.plan.questions)
+    return context.mode == "project_drill" or (
+        bool(context.plan.questions) and all(question.question_type == "项目强化" for question in context.plan.questions)
+    )
 
 
 def _project_drill_focus(context: InterviewContext) -> str:
+    if context.question_focus:
+        return context.question_focus
     prefix = "项目强化模式，提问方向："
     if context.analysis.summary.startswith(prefix):
         return context.analysis.summary.removeprefix(prefix).rstrip("。")

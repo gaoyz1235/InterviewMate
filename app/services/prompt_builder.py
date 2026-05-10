@@ -121,7 +121,14 @@ def build_project_drill_summary_prompt(project_text: str, question_focus: str, t
   ],
   "exposed_problems": ["问题1", "问题2"],
   "resume_suggestions": ["如何改写这个项目经历"],
-  "practice_suggestions": ["下一轮针对该项目练什么"]
+  "practice_suggestions": ["下一轮针对该项目练什么"],
+  "resume_rewrites": [
+    {{
+      "original": "项目经历中的原句或原始表达",
+      "rewritten": "更适合简历的改写版本，要具体、有个人贡献、有技术方案或指标",
+      "reason": "为什么这样改"
+    }}
+  ]
 }}
 
 提问方向：{question_focus or "综合项目深挖"}

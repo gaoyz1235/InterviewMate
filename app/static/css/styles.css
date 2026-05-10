@@ -210,6 +210,19 @@ button:disabled {
   line-height: 1.65;
 }
 
+.thinking {
+  justify-self: start;
+  max-width: 84%;
+  margin-top: -4px;
+  padding: 8px 12px;
+  border-left: 3px solid #c4b5fd;
+  border-radius: 10px;
+  background: #faf5ff;
+  color: #6b21a8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .score {
   color: #4f46e5;
   font-size: 40px;
@@ -226,6 +239,55 @@ button:disabled {
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   background: #f8fafc;
+}
+
+.rewrite-list {
+  display: grid;
+  gap: 14px;
+}
+
+.rewrite-card {
+  padding: 16px;
+  border: 1px solid #ddd6fe;
+  border-radius: 14px;
+  background: #faf5ff;
+}
+
+.rewrite-label {
+  margin-top: 10px;
+  color: #6b21a8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rewrite-label:first-child {
+  margin-top: 0;
+}
+
+.rewrite-card p {
+  margin: 6px 0 0;
+  line-height: 1.65;
+}
+
+.rewrite-new {
+  font-weight: 700;
+}
+
+.hint {
+  margin-top: -4px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.checkpoint-list {
+  display: grid;
+  gap: 10px;
+}
+
+.checkpoint-button {
+  width: 100%;
+  border-radius: 12px;
+  text-align: left;
 }
 
 li {

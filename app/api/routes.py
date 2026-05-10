@@ -4,11 +4,19 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.schemas.interview import AnswerRequest, AnswerResponse, InterviewSummary, StartInterviewResponse
+from app.schemas.interview import (
+    AnswerRequest,
+    AnswerResponse,
+    InterviewSummary,
+    RollbackRequest,
+    RollbackResponse,
+    StartInterviewResponse,
+)
 from app.services.interview_engine import (
     current_question,
     finish_session,
     handle_answer,
+    rollback_session,
     start_project_drill_session,
     start_session,
 )
@@ -119,6 +127,16 @@ async def finish_interview(session_id: str) -> InterviewSummary:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.post("/api/interviews/{session_id}/rollback", response_model=RollbackResponse)
+async def rollback_interview(session_id: str, request: RollbackRequest) -> RollbackResponse:
+    logger.info("user.rollback_request session_id=%s question_id=%s", session_id, request.question_id)
+    try:
+        return rollback_session(session_id, request.question_id)
+    except ValueError as exc:
+        logger.warning("api.rollback.failed session_id=%s error=%s", session_id, str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.post("/api/project-drills/start")
 async def start_project_drill(
     project_text: str = Form(""),
@@ -189,6 +207,16 @@ async def finish_project_drill(session_id: str) -> InterviewSummary:
         return finish_session(session_id)
     except ValueError as exc:
         logger.warning("api.project_drill_finish.failed session_id=%s error=%s", session_id, str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/api/project-drills/{session_id}/rollback", response_model=RollbackResponse)
+async def rollback_project_drill(session_id: str, request: RollbackRequest) -> RollbackResponse:
+    logger.info("user.project_drill_rollback session_id=%s question_id=%s", session_id, request.question_id)
+    try:
+        return rollback_session(session_id, request.question_id)
+    except ValueError as exc:
+        logger.warning("api.project_drill_rollback.failed session_id=%s error=%s", session_id, str(exc))
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 

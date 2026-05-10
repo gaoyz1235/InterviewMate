@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     llm_api_key: str = "sk-c0c58170ca694317b4e0c6cceade38b5"
     llm_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    llm_model: str = "qwen3.6-plus"
+    llm_model: str = "qwen3.6-flash"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
