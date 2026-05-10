@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 模拟面试官</title>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">AI Interview Simulator</p>
+        <h1>面向互联网大厂技术实习的一面模拟器</h1>
+        <p>
+          上传 PDF 或粘贴脱敏简历，输入目标公司和岗位，系统会围绕项目经历开始追问，并记录回答耗时。
+        </p>
+      </section>
+
+      <section class="card">
+        <form id="start-form">
+          <label>
+            简历 PDF
+            <input name="resume_file" type="file" accept=".pdf,.txt" />
+          </label>
+
+          <label>
+            或直接粘贴脱敏简历
+            <textarea name="resume_text" rows="8" placeholder="建议删除姓名、手机号、邮箱等个人信息"></textarea>
+          </label>
+
+          <div class="grid">
+            <label>
+              目标公司
+              <input name="target_company" placeholder="例如：字节跳动" />
+            </label>
+            <label>
+              目标岗位
+              <input name="target_role" placeholder="例如：后端开发实习生" />
+            </label>
+            <label>
+              面试时长（分钟）
+              <input name="duration_minutes" type="number" min="3" max="60" value="10" />
+            </label>
+          </div>
+
+          <button type="submit">开始模拟面试</button>
+        </form>
+      </section>
+
+      <section id="interview-panel" class="card hidden">
+        <div class="timer">
+          <span>当前题目计时</span>
+          <strong id="timer">00:00</strong>
+        </div>
+        <h2>面试官问题</h2>
+        <p id="question"></p>
+        <textarea id="answer" rows="6" placeholder="在这里输入你的回答，单题建议不超过 3 分钟"></textarea>
+        <button type="button" disabled>提交回答（下一步实现）</button>
+      </section>
+    </main>
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
