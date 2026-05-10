@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 模拟面试官</title>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">AI Interview Simulator</p>
+        <h1>面向互联网大厂技术实习的一面模拟器</h1>
+        <p>
+          上传 PDF 或粘贴脱敏简历，输入目标公司和岗位，系统会围绕项目经历开始追问，并记录回答耗时。
+        </p>
+      </section>
+
+      <section id="start-panel" class="card">
+        <form id="start-form">
+          <label>
+            简历 PDF
+            <input name="resume_file" type="file" accept=".pdf,.txt" />
+          </label>
+
+          <label>
+            或直接粘贴脱敏简历
+            <textarea name="resume_text" rows="8" placeholder="建议删除姓名、手机号、邮箱等个人信息"></textarea>
+          </label>
+
+          <div class="grid">
+            <label>
+              目标公司
+              <input name="target_company" placeholder="例如：字节跳动" />
+            </label>
+            <label>
+              目标岗位
+              <input name="target_role" placeholder="例如：后端开发实习生" />
+            </label>
+            <label>
+              面试时长（分钟）
+              <input name="duration_minutes" type="number" min="3" max="60" value="10" />
+            </label>
+          </div>
+
+          <button id="start-button" type="submit">开始模拟面试</button>
+          <p id="start-error" class="error"></p>
+        </form>
+      </section>
+
+      <section id="interview-panel" class="card hidden">
+        <div class="interview-meta">
+          <span id="question-type" class="badge">题型</span>
+          <span id="progress">0/0</span>
+        </div>
+        <div class="timer">
+          <span>当前题目倒计时</span>
+          <strong id="timer">03:00</strong>
+        </div>
+        <div id="messages" class="messages"></div>
+        <textarea id="answer" rows="6" placeholder="在这里输入你的回答，单题建议不超过 3 分钟"></textarea>
+        <div class="actions">
+          <button id="submit-answer" type="button">提交回答</button>
+          <button id="finish-now" type="button" class="secondary">结束并生成复盘</button>
+        </div>
+      </section>
+
+      <section id="result-panel" class="card hidden">
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Interview Report</p>
+            <h2>本轮面试复盘</h2>
+          </div>
+          <strong id="total-score" class="score">0</strong>
+        </div>
+        <div id="score-list" class="score-grid"></div>
+        <h3>暴露的问题</h3>
+        <ul id="problem-list"></ul>
+        <h3>简历修改建议</h3>
+        <ul id="resume-suggestion-list"></ul>
+        <h3>面试练习建议</h3>
+        <ul id="practice-suggestion-list"></ul>
+        <h3>问答记录</h3>
+        <div id="transcript" class="transcript"></div>
+        <button id="restart" type="button">重新开始</button>
+      </section>
+    </main>
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
