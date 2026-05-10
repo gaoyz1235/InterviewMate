@@ -34,6 +34,38 @@ def build_follow_up_prompt(question: str, answer: str, elapsed_seconds: int) -> 
 """.strip()
 
 
+def build_resume_analysis_prompt(resume_text: str) -> str:
+    return f"""
+请作为互联网大厂技术面试官，解析以下脱敏简历，提取用于模拟面试的结构化信息。
+
+要求：
+1. 不要编造简历中没有的信息。
+2. 项目经历要尽量保留能被追问的证据，例如职责、技术栈、指标、难点、成果。
+3. 技能关键词要从简历中提取，包含语言、框架、数据库、中间件、算法、工程能力等。
+4. 风险点要从面试官视角指出，例如职责不清、缺少量化指标、技术深度不足、项目边界不清、岗位匹配证据弱。
+5. summary 用 1-2 句话总结候选人可深挖方向。
+6. 只输出 JSON，不要输出 Markdown。
+
+输出格式：
+{{
+  "projects": [
+    {{
+      "name": "项目名称",
+      "description": "项目简介和候选人职责",
+      "technologies": ["技术1", "技术2"],
+      "evidence": "简历中支持该项目提取的原文或摘要"
+    }}
+  ],
+  "skills": ["技能1", "技能2"],
+  "risks": ["风险点1", "风险点2"],
+  "summary": "总结"
+}}
+
+简历文本：
+{resume_text[:8000]}
+""".strip()
+
+
 def build_summary_prompt(transcript: str) -> str:
     return f"""
 请根据以下模拟面试记录输出 JSON：

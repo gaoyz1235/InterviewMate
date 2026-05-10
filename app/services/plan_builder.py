@@ -74,6 +74,7 @@ def _build_questions_with_llm(
             duration_minutes=duration_minutes,
             question_types=question_types,
         ),
+        timeout_seconds=120,
     )
     items = data.get("questions", [])
     if not isinstance(items, list):

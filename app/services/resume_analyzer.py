@@ -1,6 +1,11 @@
+import logging
 import re
 
 from app.schemas.interview import ResumeAnalysis, ResumeProject
+from app.services.llm_client import LLMClient
+from app.services.prompt_builder import build_resume_analysis_prompt
+
+logger = logging.getLogger(__name__)
 
 SKILL_KEYWORDS = [
     "Python",
@@ -45,11 +50,69 @@ def analyze_resume(resume_text: str) -> ResumeAnalysis:
             summary="未提供有效简历内容。",
         )
 
+    llm_analysis = _analyze_resume_with_llm(text)
+    if llm_analysis:
+        logger.info(
+            "resume_analyzer.source source=llm projects=%s skills=%s risks=%s",
+            len(llm_analysis.projects),
+            len(llm_analysis.skills),
+            len(llm_analysis.risks),
+        )
+        return llm_analysis
+
+    logger.info("resume_analyzer.source source=rule")
+    return _analyze_resume_by_rule(text)
+
+
+def _analyze_resume_with_llm(text: str) -> ResumeAnalysis | None:
+    client = LLMClient()
+    if not client.configured:
+        logger.info("resume_analyzer.llm.skip reason=not_configured")
+        return None
+
+    data = client.chat_json(
+        "你是严格的技术面试简历分析专家，只输出符合要求的 JSON。",
+        build_resume_analysis_prompt(text),
+        timeout_seconds=120,
+    )
+    if not data:
+        logger.warning("resume_analyzer.llm.empty")
+        return None
+
+    try:
+        analysis = ResumeAnalysis(
+            projects=[ResumeProject(**project) for project in data.get("projects", []) if isinstance(project, dict)],
+            skills=_clean_str_list(data.get("skills", [])),
+            risks=_clean_str_list(data.get("risks", [])),
+            summary=str(data.get("summary") or "").strip(),
+        )
+    except Exception as exc:
+        logger.exception("resume_analyzer.llm.invalid error=%s", exc.__class__.__name__)
+        return None
+
+    if not analysis.projects and not analysis.skills and not analysis.summary:
+        logger.warning("resume_analyzer.llm.invalid reason=empty_analysis")
+        return None
+    return analysis
+
+
+def _analyze_resume_by_rule(text: str) -> ResumeAnalysis:
     projects = _extract_projects(text)
     skills = _extract_skills(text)
     risks = _extract_risks(text, projects, skills)
     summary = _build_summary(projects, skills, risks)
     return ResumeAnalysis(projects=projects, skills=skills, risks=risks, summary=summary)
+
+
+def _clean_str_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    cleaned = []
+    for item in value:
+        text = str(item).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
 
 
 def _extract_projects(text: str) -> list[ResumeProject]:

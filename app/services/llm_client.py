@@ -25,11 +25,12 @@ class LLMClient:
     def configured(self) -> bool:
         return bool(self.api_key and self.base_url and self.model)
 
-    def chat_text(self, system_prompt: str, user_prompt: str) -> str:
+    def chat_text(self, system_prompt: str, user_prompt: str, timeout_seconds: int = 60) -> str:
         logger.info(
-            "llm.call.start configured=%s model=%s system_chars=%s user_chars=%s system_preview=%r user_preview=%r",
+            "llm.call.start configured=%s model=%s timeout_seconds=%s system_chars=%s user_chars=%s system_preview=%r user_preview=%r",
             self.configured,
             self.model or "<unset>",
+            timeout_seconds,
             len(system_prompt),
             len(user_prompt),
             _preview(system_prompt, 240),
@@ -37,7 +38,7 @@ class LLMClient:
         )
         started = time.perf_counter()
         payload = self._request_payload(system_prompt, user_prompt)
-        data = self._post(payload)
+        data = self._post(payload, timeout_seconds=timeout_seconds)
         content = _extract_content(data)
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         logger.info(
@@ -48,8 +49,8 @@ class LLMClient:
         )
         return content
 
-    def chat_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-        text = self.chat_text(system_prompt, user_prompt)
+    def chat_json(self, system_prompt: str, user_prompt: str, timeout_seconds: int = 60) -> dict[str, Any]:
+        text = self.chat_text(system_prompt, user_prompt, timeout_seconds=timeout_seconds)
         if not text:
             logger.info("llm.chat_json.empty_response")
             return {}
@@ -82,13 +83,13 @@ class LLMClient:
         }
         return json.dumps(body).encode("utf-8")
 
-    def _post(self, payload: bytes) -> dict[str, Any]:
+    def _post(self, payload: bytes, timeout_seconds: int) -> dict[str, Any]:
         if not self.configured:
             logger.info("llm.call.skip reason=not_configured")
             return {}
 
         url = f"{self.base_url}/chat/completions"
-        logger.info("llm.transport.send model=%s payload_bytes=%s", self.model, len(payload))
+        logger.info("llm.transport.send model=%s timeout_seconds=%s payload_bytes=%s", self.model, timeout_seconds, len(payload))
         req = request.Request(
             url,
             data=payload,
@@ -100,7 +101,7 @@ class LLMClient:
         )
         started = time.perf_counter()
         try:
-            with request.urlopen(req, timeout=60) as response:
+            with request.urlopen(req, timeout=timeout_seconds) as response:
                 raw = response.read().decode("utf-8")
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
                 logger.info(

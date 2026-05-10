@@ -258,6 +258,7 @@ def _llm_follow_up_decision(question: InterviewQuestion, request: AnswerRequest)
     data = client.chat_json(
         "你是严格但友好的互联网技术面试官，只输出 JSON。",
         build_follow_up_prompt(question.question, request.answer, request.elapsed_seconds),
+        timeout_seconds=60,
     )
     if "need_follow_up" not in data:
         logger.warning("interview.llm_follow_up.invalid reason=missing_need_follow_up question_id=%s", question.question_id)
@@ -315,7 +316,11 @@ def _llm_summary(context: InterviewContext) -> InterviewSummary | None:
         logger.info("interview.llm_summary.skip session_id=%s reason=not_configured", context.session_id)
         return None
     transcript = "\n".join(f"{item.role}: {item.content}" for item in context.history)
-    data = client.chat_json("你是互联网大厂技术面试复盘专家，只输出 JSON。", build_summary_prompt(transcript))
+    data = client.chat_json(
+        "你是互联网大厂技术面试复盘专家，只输出 JSON。",
+        build_summary_prompt(transcript),
+        timeout_seconds=120,
+    )
     if not data:
         logger.info("interview.llm_summary.empty session_id=%s", context.session_id)
         return None

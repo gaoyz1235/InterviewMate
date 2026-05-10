@@ -101,8 +101,16 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
+  border: 1px solid #fecaca;
   border-radius: 14px;
-  background: #eef2ff;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+#timer {
+  color: #dc2626;
+  font-size: 28px;
+  letter-spacing: 0.04em;
 }
 
 .interview-meta,
@@ -124,11 +132,11 @@ button:disabled {
 }
 
 #timer.warning {
-  color: #d97706;
+  color: #b91c1c;
 }
 
 #timer.danger {
-  color: #dc2626;
+  color: #7f1d1d;
 }
 
 .messages,
@@ -150,6 +158,19 @@ button:disabled {
 .message.user {
   justify-self: end;
   background: #eef2ff;
+}
+
+.message.system {
+  justify-self: center;
+  max-width: 100%;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  text-align: center;
+}
+
+.message.system .message-meta {
+  color: #92400e;
 }
 
 .message-meta {

@@ -55,8 +55,13 @@ function showQuestion(question, progress) {
 function appendMessage(role, content, meta = "") {
   const item = document.createElement("div");
   item.className = `message ${role}`;
+  const labelMap = {
+    assistant: "AI 面试官",
+    user: "我的回答",
+    system: "流程提示",
+  };
   item.innerHTML = `
-    <div class="message-meta">${role === "assistant" ? "AI 面试官" : "我的回答"}${meta ? ` · ${meta}` : ""}</div>
+    <div class="message-meta">${labelMap[role] || "系统"}${meta ? ` · ${meta}` : ""}</div>
     <div class="message-content"></div>
   `;
   item.querySelector(".message-content").textContent = content;
@@ -105,6 +110,8 @@ submitAnswerButton.addEventListener("click", async () => {
   clearInterval(timerId);
   submitAnswerButton.disabled = true;
   appendMessage("user", answer, `耗时 ${seconds} 秒`);
+  answerEl.value = "";
+  answerEl.disabled = true;
   try {
     const data = await fetchJson(`/api/interviews/${sessionId}/answer`, {
       method: "POST",
@@ -119,11 +126,16 @@ submitAnswerButton.addEventListener("click", async () => {
       await renderSummary();
       return;
     }
+    if (data.action === "continue") {
+      appendMessage("system", "上一轮追问结束，进入下一道面试题。", data.progress);
+    }
     showQuestion(data.question, data.progress);
   } catch (error) {
     appendMessage("assistant", error.message);
+    answerEl.value = answer;
   } finally {
     submitAnswerButton.disabled = false;
+    answerEl.disabled = false;
   }
 });
 
